@@ -1,6 +1,6 @@
 package models
 
-// NotificationRequest is the incoming request structure
+// Incoming request structure
 type NotificationRequest struct {
 	UserID		string      `json:"user_id"`
 	EventType string      `json:"event_type"`
@@ -8,7 +8,7 @@ type NotificationRequest struct {
 	Metadata  map[string]any `json:"metadata,omitempty"`
 }
 
-// NotificationEvent is the event sent to Kafka
+// Event sent to Kafka
 type NotificationEvent struct {
 	ID        string      `json:"id"`
 	UserID		string      `json:"user_id"`

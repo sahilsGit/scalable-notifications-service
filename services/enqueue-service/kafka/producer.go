@@ -30,7 +30,20 @@ func NewProducer(cfg config.KafkaConfig) (Producer, error) {
     config.Producer.RequiredAcks = sarama.RequiredAcks(cfg.RequiredAcks)
     config.Producer.Retry.Max = cfg.RetryMax
     config.Producer.Return.Successes = true
+    
+    // Create topic manager and ensure topic exists
+    topicManager, err := NewTopicManager(cfg.Brokers)
 
+    if err != nil {
+        return nil, fmt.Errorf("failed to create topic manager: %w", err)
+    }
+    
+    defer topicManager.Close()
+    
+    if err := topicManager.EnsureTopicExists(cfg); err != nil {
+        return nil, fmt.Errorf("failed to ensure topic exists: %w", err)
+    }
+    
     // Create the sarama producer
     sarama_producer, err := sarama.NewSyncProducer(cfg.Brokers, config)
     

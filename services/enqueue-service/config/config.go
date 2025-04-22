@@ -36,7 +36,7 @@ var DefaultConfig = Config{
         Port:         8080,
         ReadTimeout:  5 * time.Second,
         WriteTimeout: 10 * time.Second,
-        IdleTimeout:  120 * time.Second,
+        IdleTimeout:  60 * time.Second,
     },
     Kafka: KafkaConfig{
         Brokers:          []string{"localhost:9092"}, // one for now

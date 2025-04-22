@@ -13,13 +13,13 @@ import (
 	"github.com/sahilsGit/scalable-notifications-service/services/enqueue-service/models"
 )
 
-// Server represents the HTTP server
+// HTTP server struct
 type Server struct {
 	server *http.Server
 	producer kafka.Producer
 }
 
-// NewServer creates a new HTTP server
+// Creates a new HTTP server
 func NewServer(cfg config.ServerConfig, producer kafka.Producer) *Server {
 	mux := http.NewServeMux()
 	
@@ -34,24 +34,24 @@ func NewServer(cfg config.ServerConfig, producer kafka.Producer) *Server {
 		producer: producer,
 	}
 
-	// Register routes
+	// Routes
 	mux.HandleFunc("/api/v1/notifications", server.handleCreateNotification)
 	mux.HandleFunc("/health", server.handleHealth)
 
 	return &server
 }
 
-// Start starts the HTTP server
+// Starts the HTTP server
 func (s *Server) Start() error {
 	return s.server.ListenAndServe()
 }
 
-// Shutdown gracefully shuts down the server
+// Gracefully shuts down the server
 func (s *Server) Shutdown(ctx context.Context) error {
 	return s.server.Shutdown(ctx)
 }
 
-// handleCreateNotification handles notification creation requests
+// Handles notification creation requests
 func (s *Server) handleCreateNotification(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -97,7 +97,7 @@ func (s *Server) handleCreateNotification(w http.ResponseWriter, r *http.Request
 	})
 }
 
-// handleHealth handles health check requests
+// Handles health check requests
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
@@ -106,7 +106,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// generateID generates a unique ID for notifications
+// Generates a unique ID for notifications
 func generateID() string {
 	return fmt.Sprintf("notif_%d", time.Now().UnixNano())
 }
