@@ -16,9 +16,9 @@ services:
       retries: 5
       start_period: 10s
 
-  kafka:
+  kafka-1:
     image: confluentinc/cp-kafka:7.3.0
-    container_name: kafka
+    container_name: kafka-1
     depends_on:
       zookeeper:
         condition: service_healthy
@@ -29,13 +29,69 @@ services:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092,PLAINTEXT_HOST://localhost:29092
+      # KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      # KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      # KAFKA_MIN_INSYNC_REPLICAS: 2
+      # KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
     volumes:
-      - kafka-data:/var/lib/kafka/data
+      - kafka-data-1:/var/lib/kafka/data
     healthcheck:
       test: kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  kafka-2:
+    image: confluentinc/cp-kafka:7.3.0
+    container_name: kafka-2
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9093:9093"
+      - "29093:29093"
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:9093,PLAINTEXT_HOST://localhost:29093
+      # KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      # KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      # KAFKA_MIN_INSYNC_REPLICAS: 2
+      # KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    volumes:
+      - kafka-data-2:/var/lib/kafka/data
+    healthcheck:
+      test: kafka-topics --bootstrap-server localhost:9093 --list >/dev/null 2>&1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  kafka-3:
+    image: confluentinc/cp-kafka:7.3.0
+    container_name: kafka-3
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9094:9094"
+      - "29094:29094"
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:9094,PLAINTEXT_HOST://localhost:29094
+      # KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      # KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      # KAFKA_MIN_INSYNC_REPLICAS: 2
+      # KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    volumes:
+      - kafka-data-3:/var/lib/kafka/data
+    healthcheck:
+      test: kafka-topics --bootstrap-server localhost:9094 --list >/dev/null 2>&1
       interval: 10s
       timeout: 5s
       retries: 5
@@ -49,13 +105,62 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      kafka:
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      kafka-3:
         condition: service_healthy
     environment:
+      # Server configuration
       - SERVER_PORT=8080
-      - KAFKA_BROKERS=["kafka:9092"]
+      - SERVER_READ_TIMEOUT=5s
+      - SERVER_WRITE_TIMEOUT=10s
+      - SERVER_IDLE_TIMEOUT=60s
+      
+      # Kafka configuration
+      - KAFKA_BROKERS=["kafka-1:9092","kafka-2:9093","kafka-3:9094"]
       - KAFKA_TOPIC=notifications.raw
+      - KAFKA_RETRY_MAX=3
+      - KAFKA_REQUIRED_ACKS=1
+      - KAFKA_DELIVERY_REPORT=true
+      - KAFKA_PARTITIONS=3
+      - KAFKA_REPLICATION_FACTOR=3
+      
+      # General configuration
+      - SHUTDOWN_TIMEOUT=10s
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  prioritizer-service:
+    build:
+      context: ../services/prioritizer-service
+      dockerfile: Dockerfile
+    container_name: prioritizer-service
+    depends_on:
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      kafka-3:
+        condition: service_healthy
+      enqueue-service:
+        condition: service_healthy
+    environment:
+      - KAFKA_CONSUMER_BROKERS=["kafka-1:9092","kafka-2:9093","kafka-3:9094"]
+      - KAFKA_CONSUMER_TOPIC=notifications.raw
+      - KAFKA_CONSUMER_GROUP_ID=prioritizer-group
+      - KAFKA_PRODUCER_BROKERS=["kafka-1:9092","kafka-2:9093","kafka-3:9094"]
+      - KAFKA_PRODUCER_TOPIC_HIGH=notifications.priority.high
+      - KAFKA_PRODUCER_TOPIC_MEDIUM=notifications.priority.medium
+      - KAFKA_PRODUCER_TOPIC_LOW=notifications.priority.low
 
 volumes:
   zookeeper-data:
-  kafka-data:
+  kafka-data-1:
+  kafka-data-2:
+  kafka-data-3:
