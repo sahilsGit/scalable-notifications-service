@@ -12,11 +12,6 @@ For simplicity all the services are managed by a single `docker-compose` file, b
 
 ```mermaid
 graph TB
-    classDef service fill:#62a87c,stroke:#333,stroke-width:1px,color:white
-    classDef database fill:#e58e26,stroke:#333,stroke-width:1px,color:white
-    classDef kafka fill:#7c62a8,stroke:#333,stroke-width:1px,color:white
-    classDef external fill:#a86262,stroke:#333,stroke-width:1px,color:white
-
     Client["Client Applications"]:::external
     
     subgraph "Entry Layer"
