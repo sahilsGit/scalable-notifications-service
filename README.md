@@ -82,12 +82,11 @@ graph TB
 
 ## Architecture Components
 
-- **Enqueue Service**
-Entry point for all notification requests. Validates and publishes events to Kafka.
-- **Notification Validator & Prioritizer Service**: Consumes, validates, assigns priorities, and dispatches to appropriate topic.
-- **Rate Limiter Service**: Controls notification flow and applies rate limiting.
+- __**Enqueue Service**__: Entry point for all notification requests. Validates and publishes events to Kafka.
+- __**Notification Validator & Prioritizer Service**__: Consumes, validates, assigns priorities, and dispatches to appropriate topic.
+- __**Rate Limiter Service**__: Controls notification flow and applies rate limiting.
 
-- **Notification Tracker (Future Plan)**: Records notification history for analytics and auditing (SKELETON)
+- __**Notification Tracker (Future Plan)**__: Records notification history for analytics and auditing (SKELETON)
 - **Data Stores**: 
   - **Redis**: For rate limiting
   - **MySQL**: For user preferences
