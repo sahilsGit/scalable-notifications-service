@@ -7,14 +7,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/sahilsGit/scalable-notifications-service/services/prioritizer-service/config"
-	"github.com/sahilsGit/scalable-notifications-service/services/prioritizer-service/kafka"
-	"github.com/sahilsGit/scalable-notifications-service/services/prioritizer-service/prioritizers"
-	"github.com/sahilsGit/scalable-notifications-service/services/prioritizer-service/validators"
+	"github.com/sahilsGit/scalable-notifications-service/services/rate-limiter-service/config"
+	"github.com/sahilsGit/scalable-notifications-service/services/rate-limiter-service/kafka"
 )
 
 func main() {
-	log.Println("Starting Prioritizer Service...")
+	log.Println("Starting Rate Limiter Service...")
 
 	// Load configuration
 	cfg, err := config.Load()
@@ -22,9 +20,25 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// Create validator and prioritizer
-	validator := validators.NewValidator()
-	prioritizer := prioritizers.NewPrioritizer()
+	// Create a context that will be canceled on interrupt
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Initialize rate limiter
+	rateLimiter, err := cfg.CreateRateLimiter()
+	if err != nil {
+		log.Fatalf("Failed to create rate limiter: %v", err)
+	}
+	defer rateLimiter.Close()
+	log.Println("Rate limiter initialized")
+
+	// Initialize preferences service
+	preferencesService, err := cfg.CreatePreferencesService()
+	if err != nil {
+		log.Fatalf("Failed to create preferences service: %v", err)
+	}
+	defer preferencesService.Close()
+	log.Println("Preferences service initialized")
 
 	// Initialize Kafka producer
 	producer, err := kafka.NewProducer(cfg.KafkaProducer)
@@ -32,20 +46,18 @@ func main() {
 		log.Fatalf("Failed to create Kafka producer: %v", err)
 	}
 	defer producer.Close()
+	log.Println("Kafka producer initialized")
 
 	// Create the processor
-	processor := kafka.NewProcessor(validator, prioritizer, producer)
+	processor := kafka.NewProcessor(ctx, rateLimiter, preferencesService, producer)
 
 	// Initialize Kafka consumer
-	consumer, err := kafka.NewConsumer(cfg.KafkaConsumer)
+	consumer, err := kafka.NewPriorityConsumer(cfg.KafkaConsumer)
 	if err != nil {
 		log.Fatalf("Failed to create Kafka consumer: %v", err)
 	}
 	defer consumer.Close()
-
-	// Create a context that will be canceled on interrupt
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	log.Println("Kafka priority consumer initialized")
 
 	// Setup signal handling
 	sigCh := make(chan os.Signal, 1)
@@ -58,14 +70,14 @@ func main() {
 	}()
 
 	// Start the consumer
-	log.Println("Starting Kafka consumer...")
+	log.Println("Starting Kafka priority consumer...")
 	go func() {
 		if err := consumer.Start(ctx, processor.ProcessMessage); err != nil {
 			log.Fatal(err)
 		}
 	}()
 
-	log.Println("Prioritizer Service started successfully")
+	log.Println("Rate Limiter Service started successfully")
 
 	// Wait for context cancellation
 	<-ctx.Done()
@@ -78,5 +90,5 @@ func main() {
 	// Wait for shutdown timeout
 	<-shutdownCtx.Done()
 	
-	log.Println("Prioritizer Service shut down")
+	log.Println("Rate Limiter Service shut down")
 }
