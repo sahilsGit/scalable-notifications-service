@@ -73,6 +73,7 @@ graph TB
 ## Key Features
 
 - ✅ **Microservices Architecture**: Loosely coupled services; Kafka being the heart of the system
+
 - ✅ **Priority-Based Processing**: Different processing lanes for different notification priorities
 - ✅ **Rate Limiting**: Redis-backed rate limiting skeleton to prevent notification fatigue & possible DDoS attacks
 - ✅ **Horizontal Scalability**: Each component can be independently scaled
@@ -81,25 +82,16 @@ graph TB
 
 ## Architecture Components
 
-### 1. Enqueue Service
+- **Enqueue Service**
 Entry point for all notification requests. Validates and publishes events to Kafka.
-- **Technologies**: Go, Sarama-Kafka, REST API
+- **Notification Validator & Prioritizer Service**: Consumes, validates, assigns priorities, and dispatches to appropriate topic.
+- **Rate Limiter Service**: Controls notification flow and applies rate limiting.
 
-### 2. Notification Validator & Prioritizer Service
-Consumes, validates, assigns priorities, and dispatches to appropriate topic.
-- **Technologies**: Go, Sarama-Kafka consumer/producer
-
-### 3. Rate Limiter Service
-Controls notification flow and applies rate limiting.
-- **Technologies**: Go, Redis, Kafka consumer/producer
-
-### 4. Notification Tracker (Future Plan)
-Records notification history for analytics and auditing (SKELETON)
-- **Technologies**: Go, Cassandra, Kafka consumer
-
-### 5. Delivery Handlers (Skeleton)
-Specialized services for different notification channels:
-- **Email Handler**: Sends email notifications
+- **Notification Tracker (Future Plan)**: Records notification history for analytics and auditing (SKELETON)
+- **Data Stores**: 
+  - **Redis**: For rate limiting
+  - **MySQL**: For user preferences
+  - **Cassandra**: For notification history (SKELETON)
 
 ## Data Flow
 
