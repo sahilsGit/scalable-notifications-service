@@ -97,6 +97,44 @@ services:
       retries: 5
       start_period: 15s
 
+  # Redis for rate limiting
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # MySQL for user preferences
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: preferences
+      MYSQL_USER: notifications
+      MYSQL_PASSWORD: notifications
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "notifications", "-pnotifications"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   enqueue-service:
     build:
       context: ../services/enqueue-service
@@ -159,8 +197,61 @@ services:
       - KAFKA_PRODUCER_TOPIC_MEDIUM=notifications.priority.medium
       - KAFKA_PRODUCER_TOPIC_LOW=notifications.priority.low
 
+  rate-limiter-service:
+    build:
+      context: ../services/rate-limiter-service
+      dockerfile: Dockerfile
+    container_name: rate-limiter-service
+    depends_on:
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      kafka-3:
+        condition: service_healthy
+      prioritizer-service:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+    environment:
+      # Kafka Consumer configuration
+      - KAFKA_CONSUMER_BROKERS=["kafka-1:9092","kafka-2:9093","kafka-3:9094"]
+      - KAFKA_CONSUMER_GROUP_ID=rate-limiter-group
+      - KAFKA_CONSUMER_TOPIC_HIGH=notifications.priority.high
+      - KAFKA_CONSUMER_TOPIC_MEDIUM=notifications.priority.medium
+      - KAFKA_CONSUMER_TOPIC_LOW=notifications.priority.low
+      - MOCK_MODE=false
+      
+      # Kafka Producer configuration
+      - KAFKA_PRODUCER_BROKERS=["kafka-1:9092","kafka-2:9093","kafka-3:9094"]
+      - KAFKA_PRODUCER_TOPIC=notifications.delivery
+      - KAFKA_PRODUCER_PARTITIONS=3
+      - KAFKA_PRODUCER_REPLICATION_FACTOR=3
+      
+      # Redis configuration
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
+      - REDIS_WINDOW_SECONDS=3600
+      - REDIS_LIMIT_HIGH=100
+      - REDIS_LIMIT_MEDIUM=50
+      - REDIS_LIMIT_LOW=20
+      
+      # Database configuration
+      - DB_DRIVER=mysql
+      - DB_DSN=notifications:notifications@tcp(mysql:3306)/preferences?parseTime=true
+      - DB_MAX_CONNS=10
+      - DB_MAX_IDLE=5
+      
+      # General configuration
+      - SHUTDOWN_TIMEOUT=10s
+
 volumes:
   zookeeper-data:
   kafka-data-1:
   kafka-data-2:
   kafka-data-3:
+  redis-data:
+  mysql-data:
