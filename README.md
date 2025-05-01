@@ -8,7 +8,72 @@ This project implements a minimal concept as to how notifications can be handled
 
 For simplicity all the services are managed by a single `docker-compose` file, but in real-world scenario it can orchestrated using `kubernetes` or something.
 
-![System Architecture](./assets/system-architecture.png)
+## Architecture Diagram
+
+```mermaid
+graph TB
+    classDef service fill:#62a87c,stroke:#333,stroke-width:1px,color:white
+    classDef database fill:#e58e26,stroke:#333,stroke-width:1px,color:white
+    classDef kafka fill:#7c62a8,stroke:#333,stroke-width:1px,color:white
+    classDef external fill:#a86262,stroke:#333,stroke-width:1px,color:white
+
+    Client["Client Applications"]:::external
+    
+    subgraph "Entry Layer"
+        EnqueueSvc["Enqueue Service (Go, REST API)"]:::service
+    end
+    
+    subgraph "Kafka Backbone"
+        RawTopic["Raw Notifications Topic"]:::kafka
+        HighTopic["High Priority Topic"]:::kafka
+        MediumTopic["Medium Priority Topic"]:::kafka
+        LowTopic["Low Priority Topic"]:::kafka
+        DeliveryTopic["Delivery Topics (email, push,
+         etc)"]:::kafka
+    end
+    
+    subgraph "Processing Layer"
+        Validator["Validator & Prioritizer"]:::service
+        Preferences-RateLimiter["Preferences & Rate Limiter"]:::service
+        Tracker["Notification Tracker"]:::service
+    end
+    
+    subgraph "Delivery Layer"
+        EmailHandler["Email Handler"]:::service
+        PushHandler["Push Notification Handler"]:::service
+        OtherHandlers["Other Channel Handlers"]:::service
+    end
+    
+    subgraph "Data Stores"
+        Redis["Redis (Rate Limiting)"]:::database
+        MySQL["MySQL (User Preferences)"]:::database
+        Cassandra["Cassandra (Notification 
+        History)"]:::database
+    end
+    
+    Client -->|Generate event| EnqueueSvc
+    EnqueueSvc -->|Publish raw event| RawTopic
+    RawTopic -->|Consume| Validator
+
+    
+    Validator -->|High priority| HighTopic
+    Validator -->|Medium priority| MediumTopic
+    Validator -->|Low priority| LowTopic
+    
+    HighTopic & MediumTopic & LowTopic -->|Consume by priority| Preferences-RateLimiter
+    Preferences-RateLimiter <-->|Query/Update| Redis
+    Preferences-RateLimiter -->|Publish to delivery| DeliveryTopic
+    Preferences-RateLimiter <-->|Query| MySQL
+    
+    DeliveryTopic -->|Route to handlers| EmailHandler & PushHandler & OtherHandlers
+    
+    DeliveryTopic -.->|Record history| Tracker
+    Tracker -.->|Store| Cassandra
+    
+    EmailHandler -->|Send| Client
+    PushHandler -->|Notify| Client
+    OtherHandlers -->|Deliver| Client
+```
 
 ## Key Features
 
