@@ -4,7 +4,7 @@ A Conceptual highly scalable, loosely coupled distributed notification system de
 
 ## System Overview
 
-This project implements a minimal concept as to how notifications can be handled at scale. Built using a microservices architecture with event driven communication patterns, it handles reliable delivery across multiple channels with minimal coupling between components. 
+This project implements a scalable notification system built on a microservices architecture. It uses event-driven communication to ensure reliable message delivery across multiple channels, while maintaining loose coupling between services
 
 For simplicity all the services are managed by a single `docker-compose` file, but in real-world scenario it can orchestrated using `kubernetes` or something.
 
@@ -127,8 +127,6 @@ sequenceDiagram
 ```
 
 ## Scaling Strategy
-
-The system is designed to scale horizontally at each layer:
 
 ```mermaid
 flowchart LR
